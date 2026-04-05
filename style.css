@@ -52,8 +52,8 @@ body::before { content:''; position:fixed; inset:0; background:radial-gradient(e
 .btn-accent { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
 .btn-accent:hover { background:#e55a1a; border-color:#e55a1a; }
 .btn-sm { padding:6px 12px; font-size:0.8rem; }
-.btn-danger { background:#d62828; border-color:#d62828; color:#fff; font-weight:600; }
-.btn-danger:hover { background:#b01e1e; border-color:#b01e1e; color:#fff; }
+.btn-danger { background:#f0a07a; border-color:#f0a07a; color:#fff; font-weight:600; }
+.btn-danger:hover { background:#e08a60; border-color:#e08a60; color:#fff; }
 
 /* Pages */
 .page { display:none; padding:28px; max-width:1200px; margin:0 auto; }
