@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentArena — Битва AI-агентов</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=2">
+<style>
+/* ===== DEBATE v9 — СОВЕТ ЭКСПЕРТОВ ===== */
+.debate-setup{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px}
+.debate-arena{display:none}
+.debate-topic-title{font-size:1rem;font-weight:700;margin-bottom:4px;color:var(--text-dim)}
+.debate-progress{font-size:0.78rem;color:var(--accent2);font-family:var(--font-mono);flex:1}
+.debate-thread{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 280px);overflow-y:auto;padding-right:4px;margin-bottom:16px;scroll-behavior:smooth}
+.debate-round-group{}
+.debate-round-header{text-align:center;font-size:0.75rem;color:var(--text-muted);font-family:var(--font-mono);font-weight:600;letter-spacing:0.06em;padding:8px 4px;cursor:pointer;user-select:none;transition:color 0.2s;line-height:1.5}
+.debate-round-header:hover{color:var(--text-dim)}
+.debate-round-preview{color:var(--text-dim);font-weight:400;font-style:italic;display:inline-block;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.round-toggle{font-size:0.7rem;margin-left:6px}
+.debate-round-content{display:flex;flex-direction:column;gap:10px}
+.debate-round-content.collapsed{display:none}
+.debate-card{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);overflow:visible}
+.debate-card-header{padding:10px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:0.88rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.debate-card-time{margin-left:auto;font-size:0.72rem;font-family:var(--font-mono);color:var(--text-muted);font-weight:400}
+.debate-role-badge{font-size:0.68rem;padding:2px 8px;border-radius:10px;background:var(--accent2-dim);color:var(--accent2);font-weight:600;font-family:var(--font-display)}
+.debate-card-body{padding:14px 16px;font-size:0.88rem;line-height:1.7;color:var(--text-dim);white-space:pre-wrap}
+.debate-card-body.clamped{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.debate-thinking{color:var(--text-muted);font-style:italic;animation:think-pulse 1.5s ease-in-out infinite}
+@keyframes think-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.debate-expand-btn{display:block;width:100%;padding:7px;border:none;border-top:1px solid var(--border);background:var(--bg-card);color:var(--accent2);font-size:0.78rem;font-family:var(--font-display);cursor:pointer;transition:background 0.2s;text-align:center}
+.debate-expand-btn:hover{background:var(--bg-card-hover)}
+.debate-verdict-card{background:var(--bg-card);border:1px solid var(--accent2);border-radius:var(--radius);padding:16px}
+.debate-verdict-header{font-weight:700;font-size:0.9rem;margin-bottom:10px;color:var(--accent2)}
+.debate-synthesis{font-size:0.9rem;line-height:1.7;color:var(--text);margin-bottom:14px;padding:12px;background:var(--bg-deep);border-radius:var(--radius-sm);border-left:3px solid var(--accent2)}
+.debate-section{font-size:0.82rem;color:var(--text-dim);margin-bottom:8px;line-height:1.5}
+.debate-section-label{font-weight:700;margin-right:4px}
+/* Criteria table */
+.debate-criteria-table{width:100%;border-collapse:collapse;font-size:0.78rem;margin-top:10px}
+.debate-criteria-table th{padding:6px 8px;text-align:center;font-weight:600;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border)}
+.debate-criteria-table th:first-child{text-align:left}
+.debate-criteria-table td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);font-family:var(--font-mono)}
+.debate-ct-agent{text-align:left!important;font-family:var(--font-display)!important;font-weight:600;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.debate-ct-comment{font-family:var(--font-display)!important;font-style:italic;color:var(--text-muted);font-size:0.76rem;text-align:left!important;padding-left:24px!important;border-bottom:1px solid var(--border)}
+/* Scoreboard */
+.debate-scoreboard{display:flex;flex-direction:column;gap:5px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px}
+.debate-scoreboard:empty{display:none}
+.debate-sb-item{display:flex;align-items:center;gap:10px;font-size:0.8rem}
+.debate-sb-leader .debate-sb-agent{color:var(--accent);font-weight:700}
+.debate-sb-agent{min-width:110px;font-weight:600;color:var(--text-dim);white-space:nowrap;display:flex;align-items:center;gap:6px}
+.debate-sb-bar{flex:1;height:6px;background:var(--bg-deep);border-radius:3px;overflow:hidden}
+.debate-sb-fill{height:100%;border-radius:3px;transition:width 0.5s ease}
+.debate-sb-score{min-width:100px;text-align:right;font-family:var(--font-mono);font-weight:600;font-size:0.78rem}
+/* Loading */
+.debate-skeleton{opacity:.5}
+.skeleton-line{height:12px;background:var(--border);border-radius:4px;margin-bottom:8px;animation:shimmer 1.5s infinite}
+.skeleton-line.short{width:60%}
+@keyframes shimmer{0%,100%{opacity:.3}50%{opacity:.7}}
+/* Panels */
+.debate-pause-panel{background:var(--bg-panel);border:1px solid var(--accent);border-radius:var(--radius);padding:20px;margin-top:16px;display:none}
+.debate-pause-panel h3{font-size:0.95rem;font-weight:700;margin-bottom:12px}
+.debate-final-panel{background:var(--bg-panel);border:1px solid var(--accent2);border-radius:var(--radius);padding:24px;margin-top:16px;display:none}
+.debate-final-section{margin-bottom:16px}
+.debate-final-section h4{font-size:0.88rem;font-weight:700;margin-bottom:8px;color:var(--text)}
+.debate-final-section ul{margin:4px 0 0 18px;font-size:0.85rem;color:var(--text-dim);line-height:1.6}
+.debate-final-synthesis{margin-bottom:16px;padding:16px;background:var(--bg-deep);border-radius:var(--radius-sm);border-left:3px solid var(--accent2)}
+.debate-final-synthesis h4{font-size:0.95rem;font-weight:700;color:var(--accent2);margin-bottom:8px}
+.debate-final-synthesis p{font-size:0.9rem;color:var(--text);line-height:1.7}
+.debate-final-arg{margin-bottom:8px;font-size:0.85rem;color:var(--text-dim);display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.debate-final-arg p{margin:2px 0 0;flex:1;min-width:200px}
+.debate-final-summary{font-size:0.88rem;color:var(--text-dim);line-height:1.6;margin-bottom:16px;padding:12px;background:var(--bg-deep);border-radius:var(--radius-sm)}
+.debate-chart-wrap{padding:12px;background:var(--bg-deep);border-radius:var(--radius-sm)}
+.debate-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.debate-presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.debate-preset{padding:5px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;font-size:0.78rem;color:var(--text-dim);cursor:pointer;transition:all 0.2s}
+.debate-preset:hover{border-color:var(--accent);color:var(--accent)}
+.debate-warning{padding:8px 14px;background:#f8514910;border:1px solid #f8514930;border-radius:var(--radius-sm);font-size:0.8rem;color:var(--danger);margin-top:6px}
+.debate-time-est{font-size:0.78rem;color:var(--text-muted);margin-top:6px;font-family:var(--font-mono)}
+.debate-encouragement{text-align:center;font-size:0.78rem;color:var(--accent2);padding:8px;font-style:italic}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="app">
+
+<header class="header" id="mainHeader" style="display:none;">
+  <div class="logo"><div class="logo-icon">⚔</div>AgentArena</div>
+  <nav class="nav">
+    <button class="nav-btn active" data-page="arena">Арена</button>
+    <button class="nav-btn" data-page="debate">Дебаты</button>
+    <button class="nav-btn" data-page="agents">Мои агенты</button>
+    <button class="nav-btn" data-page="history">История</button>
+    <button class="nav-btn" data-page="rating">Рейтинг</button>
+  </nav>
+  <div class="user-bar">
+    <span class="user-email" id="userEmail"></span>
+    <button class="btn btn-sm btn-danger" id="logoutBtn">Выйти</button>
+  </div>
+</header>
+
+<div class="page active" id="authPage">
+  <div class="auth-container fade-up">
+    <h1>AgentArena</h1>
+    <p>Сравни ответы AI-агентов на одну задачу.<br>Войди, чтобы сохранять результаты и голосовать.</p>
+    <div class="auth-box">
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-mode="login">Вход</button>
+        <button class="auth-tab" data-mode="signup">Регистрация</button>
+      </div>
+      <div class="form-group"><label>Email</label><input type="email" class="form-input" id="authEmail" placeholder="you@example.com" autocomplete="email"></div>
+      <div class="form-group"><label>Пароль</label><input type="password" class="form-input" id="authPass" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="btn btn-danger auth-submit" id="authSubmit">Войти</button>
+      <div class="auth-msg" id="authMsg"></div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="arenaPage">
+  <h2 class="section-title">Новая задача</h2>
+  <div class="task-input-area">
+    <textarea id="taskInput" placeholder="Опиши задачу для AI-агентов...&#10;Например: Напиши функцию сортировки на Python"></textarea>
+    <div class="task-controls">
+      <div class="agent-selector" id="agentSelector"></div>
+      <button class="btn btn-accent" id="runBtn">Запустить ⚡</button>
+    </div>
+  </div>
+  <div id="errorMsg" style="display:none;padding:12px 16px;margin-top:12px;background:#f8514920;border:1px solid #f8514940;border-radius:8px;color:#f85149;font-size:0.85rem;font-family:var(--font-mono)"></div>
+  <div class="loading-bar" id="loadingBar"></div>
+  <div class="results-grid" id="resultsGrid"></div>
+</div>
+
+<!-- ===== DEBATE PAGE ===== -->
+<div class="page" id="debatePage">
+  <h2 class="section-title">Дебаты агентов</h2>
+
+  <!-- Setup -->
+  <div class="debate-setup" id="debateSetupPanel">
+    <div class="form-group">
+      <label>Тема дебатов</label>
+      <div class="debate-presets">
+        <span class="debate-preset" data-topic="Стоит ли человечеству колонизировать Марс?">🚀 Марс</span>
+        <span class="debate-preset" data-topic="ИИ заменит программистов через 5 лет?">🤖 ИИ vs разработчики</span>
+        <span class="debate-preset" data-topic="Python или Rust — что лучше для стартапа?">🐍 Python vs Rust</span>
+        <span class="debate-preset" data-topic="Удалёнка лучше офиса для продуктивности?">🏠 Удалёнка vs офис</span>
+      </div>
+      <textarea class="form-textarea" id="debateTopicInput" placeholder="Или введи свою тему..." style="min-height:60px"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Участники дебатов (минимум 2)</label>
+      <div class="agent-selector" id="debateAgentSelector"></div>
+    </div>
+    <div class="form-row" style="margin-top:16px">
+      <div class="form-group">
+        <label>Модель судьи</label>
+        <select class="form-select" id="debateJudgeModel">
+          <option value="gpt-4o">GPT-4o (рекомендуется)</option>
+          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+          <option value="gpt-4o-mini">GPT-4o Mini</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Начальное кол-во раундов (макс. 10)</label>
+        <input type="number" class="form-input" id="debateRoundsInput" value="3" min="1" max="10">
+      </div>
+    </div>
+    <div class="auth-msg" id="debateSetupMsg"></div>
+    <button class="btn btn-accent" id="debateStartBtn" style="margin-top:8px">Начать дебаты ⚔️</button>
+  </div>
+
+  <!-- Arena (shown after start) -->
+  <div class="debate-arena" id="debateArenaPanel">
+    <div class="debate-topic-title" id="debateTopicDisplay"></div>
+    <div class="debate-thread" id="debateThread"></div>
+
+    <!-- Pause panel (shown when round limit hit) -->
+    <div class="debate-pause-panel" id="debatePausePanel">
+      <h3>⏸ Лимит раундов достигнут</h3>
+      <p class="debate-final-summary" id="debatePauseInfo"></p>
+      <div class="debate-row">
+        <span style="font-size:0.88rem;color:var(--text-dim)">Добавить раундов:</span>
+        <input type="number" class="form-input" id="debatePauseRounds" value="3" min="1" max="10" style="width:80px">
+        <button class="btn btn-accent" id="debateMoreRoundsBtn">Продолжить</button>
+      </div>
+    </div>
+
+    <!-- Final panel — expert conclusion -->
+    <div class="debate-final-panel" id="debateFinalPanel">
+      <div id="debateFinalContent"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        <button class="btn" id="debateContinueFromFinal" onclick="window._continueFromFinal()">🔄 Продолжить (+3 раунда)</button>
+        <button class="btn" id="debateCopyBtn" onclick="window._copyResults()">📋 Скопировать</button>
+        <button class="btn" id="debateRepeatBtn" onclick="window._repeatDebate()">🔁 Повторить</button>
+        <button class="btn" id="debateNewBtn" style="display:none">Новые дебаты</button>
+      </div>
+      <div class="form-group">
+        <label>Твои заметки к этому дебату</label>
+        <textarea class="form-textarea" id="debateFinalVerdictInput" placeholder="Свои мысли, выводы, вопросы для следующего дебата..." style="min-height:70px"></textarea>
+      </div>
+      <button class="btn btn-accent btn-sm" id="debateFinalBtn" style="margin-top:4px">Сохранить заметки</button>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="agentsPage">
+  <div class="section-header">
+    <h2 class="section-title" style="margin-bottom:0">Мои агенты</h2>
+    <button class="btn btn-accent" id="addAgentBtn">+ Создать агента</button>
+  </div>
+  <div class="agents-grid" id="agentsGrid"></div>
+</div>
+
+<div class="page" id="historyPage">
+  <h2 class="section-title">История</h2>
+  <div style="margin-bottom:24px">
+    <h3 style="font-size:1rem;font-weight:700;margin-bottom:10px;color:var(--accent2)">📋 Дебаты экспертов</h3>
+    <div id="debateHistoryList" class="history-list"></div>
+  </div>
+  <h3 style="font-size:1rem;font-weight:700;margin-bottom:10px">⚡ Задачи арены</h3>
+  <div class="history-list" id="historyList"></div>
+</div>
+
+<div class="page" id="ratingPage">
+  <h2 class="section-title">Глобальный рейтинг агентов</h2>
+  <div id="ratingContent"></div>
+</div>
+
+<div class="overlay" id="detailOverlay">
+  <div class="overlay-panel" id="detailPanel"></div>
+</div>
+
+<div class="overlay" id="agentFormOverlay">
+  <div class="overlay-panel overlay-panel-sm">
+    <h2 id="agentFormTitle" style="font-size:1.2rem;font-weight:700;margin-bottom:20px">Создать агента</h2>
+    <input type="hidden" id="editAgentId">
+    <div class="form-row">
+      <div class="form-group" style="flex:0 0 80px"><label>Эмодзи</label><input type="text" class="form-input" id="agentEmoji" value="🤖" maxlength="4" style="text-align:center;font-size:1.4rem;padding:6px"></div>
+      <div class="form-group"><label>Имя агента</label><input type="text" class="form-input" id="agentName" placeholder="Мой суперагент"></div>
+    </div>
+    <div class="form-group"><label>Описание</label><input type="text" class="form-input" id="agentDesc" placeholder="Краткое описание агента"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Модель</label>
+        <select class="form-select" id="agentModel">
+          <option value="gpt-4o-mini">GPT-4o Mini (быстрый)</option>
+          <option value="gpt-4o">GPT-4o (умный)</option>
+          <option value="gpt-4-turbo">GPT-4 Turbo (мощный)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Цвет</label>
+        <div class="color-wrap"><input type="color" id="agentColor" value="#22d3ee"><span id="agentColorHex" style="font-family:var(--font-mono);font-size:0.82rem;color:var(--text-dim)">#22d3ee</span></div>
+      </div>
+    </div>
+    <div class="form-group"><label>Системный промпт (личность агента)</label><textarea class="form-textarea" id="agentPrompt" placeholder="Ты — эксперт по Python. Отвечай кратко, с примерами кода..." style="min-height:100px"></textarea></div>
+    <div class="form-actions">
+      <button class="btn" id="cancelAgentBtn">Отмена</button>
+      <button class="btn btn-accent" id="saveAgentBtn">Сохранить</button>
+    </div>
+    <div class="auth-msg" id="agentFormMsg"></div>
+  </div>
+</div>
+
+</div>
+
+<!-- JS: порядок загрузки важен! config → app → модули → init -->
+<script src="config.js?v=2"></script>
+<script src="app.js?v=3"></script>
+<script src="arena.js?v=2"></script>
+<script src="agents.js?v=2"></script>
+<script src="history.js?v=3"></script>
+<script src="rating.js?v=2"></script>
+<script src="debate.js?v=9"></script>
+<script src="init.js?v=2"></script>
+</body>
+</html>
